@@ -6,91 +6,104 @@ from numpy.random import rand
 import matplotlib.pyplot as plt
 from matplotlib import animation
 import matplotlib.patches as mpatches
-
 from IPython.display import clear_output
 
-from numba import jit
 from tqdm import tqdm_notebook as tqdm
 
 import os
 import warnings
-import time
 
-np.set_printoptions(threshold=np.inf)
+##########################################
+cimport cython
+cimport numpy as np
+
+from libc.math cimport sqrt
+from libc.stdlib cimport rand
+cdef extern from "limits.h":
+    int RAND_MAX
 
 warnings.filterwarnings("ignore",category =RuntimeWarning)
 warnings.filterwarnings("ignore",category =FutureWarning)
 
-class SIRError(Exception):
+cdef class SIRError(Exception):
     """ An exception class for Ising """
     pass
 
 # Class to simulate SIR model
-class SIR():
+cdef class SIR(object):
+
+    cdef public int N, equistep, calcstep, factor
+    cdef public double p1, p2, p3, ini_S, ini_I, ini_R
+    cdef public double[:, :] grid, I, var_I
+    cdef public list label
+    cdef public np.double_t[:] vals, infected, infected2, Ii_I, p1_data, p3_data, p1_cut, p3_cut, var_I_cut, I_immune, I_immune_err, f_im
+    cdef public list p1p3, p1p3_cut
+    cdef public str RUN_NAME
 
 ############################################### INITIALISER #####################################################
-    def __init__(self, N, fraction, p, factor, equistep, calcstep):
-        self.N          = N
-        self.p1         = p[0]
-        self.p2         = p[1]
-        self.p3         = p[2]
-        self.ini_S      = fraction[0]
-        self.ini_I      = fraction[1]
-        self.ini_R      = fraction[2]
-        self.vals       = np.array([0.0, 1.0, 0.4])
-        self.label      = ['S', 'I', 'R']
-        self.grid       = np.random.choice(self.vals, N*N, p=[self.ini_S, self.ini_I, self.ini_R]).reshape(N, N)
+    def __init__(self, int N, list fraction, list p, int factor, int equistep, int calcstep):
+        self.N               = N
+        self.p1              = p[0]
+        self.p2              = p[1]
+        self.p3              = p[2]
+        self.ini_S           = fraction[0]
+        self.ini_I           = fraction[1]
+        self.ini_R           = fraction[2]
+        self.vals            = np.array([0.0, 1.0, 0.4])
+        self.label           = ['S', 'I', 'R']
+        self.grid            = np.random.choice(self.vals, N*N, p=[self.ini_S, self.ini_I, self.ini_R]).reshape(N, N)
 
-        self.equistep   = equistep
-        self.calcstep   = calcstep
-        self.factor     = factor
+        self.RUN_NAME        = 'N_{0} CALCSTEP_{1}'.format(N, calcstep)
+        self.equistep        = equistep
+        self.calcstep        = calcstep
+        self.factor          = factor
 
-        self.infected    = np.zeros(factor)
-        self.infected2   = np.zeros(factor)
-        self.Ii_I       = np.zeros(factor)
+        self.infected        = np.zeros(factor)
+        self.infected2       = np.zeros(factor)
+        self.Ii_I            = np.zeros(factor)
 
-        self.p1_data    = np.linspace(0.0, 1.0, N)
-        self.p3_data    = np.linspace(0.0, 1.0, N)
-        self.p1p3       = np.meshgrid(self.p1_data, self.p3_data)
+        self.p1_data         = np.linspace(0.0, 1.0, N)
+        self.p3_data         = np.linspace(0.0, 1.0, N)
+        self.p1p3            = np.meshgrid(self.p1_data, self.p3_data)
 
-        # self.p1_cut     = np.linspace(0.0, 0.25, N)
-        self.p1_cut     = np.linspace(0.2, 0.5, N)
-        self.p3_cut     = np.zeros(N) + 0.5
-        self.p1p3_cut   = np.meshgrid(self.p1_cut, self.p3_cut)
+        self.p1_cut          = np.linspace(0.2, 0.5, N)
+        self.p3_cut          = np.zeros(N) + 0.5
+        self.p1p3_cut        = np.meshgrid(self.p1_cut, self.p3_cut)
 
-        self.I          = np.zeros((N, N))
-        self.var_I      = np.zeros((N, N))
+        self.I               = np.zeros((N, N))
+        self.var_I           = np.zeros((N, N))
 
-        self.var_I_cut  = np.zeros(N)
-        self.I_immune   = np.zeros(N)
-        self.I_immune_err = np.zeros(N)
-        self.f_im       = np.linspace(0.0, 1.0, N)
-
+        self.var_I_cut       = np.zeros(N)
+        self.I_immune        = np.zeros(N)
+        self.I_immune_err    = np.zeros(N)
+        self.f_im            = np.linspace(0.0, 1.0, N)
     
     def reinitialise(self):
-        self.grid       = np.random.choice(self.vals, self.N*self.N, p=[self.ini_S, self.ini_I, self.ini_R]).reshape(self.N, self.N)
+        self.grid            = np.random.choice(self.vals, self.N*self.N, p=[self.ini_S, self.ini_I, self.ini_R]).reshape(self.N, self.N)
 
-        self.p1p3       = np.meshgrid(np.linspace(0.0, 1.0, self.N), np.linspace(0.0, 1.0, self.N))
-        self.I          = np.zeros((self.N, self.N))
-        self.var_I      = np.zeros((self.N, self.N))
-        self.var_I_cut  = np.zeros(self.N)
-        self.I_immune   = np.zeros(self.N)
-        self.I_immune_err   = np.zeros(self.N)
-        self.f_im       = np.linspace(0.0, 1.0, self.N)
+        self.p1p3            = np.meshgrid(np.linspace(0.0, 1.0, self.N), np.linspace(0.0, 1.0, self.N))
+
+        self.I               = np.zeros((self.N, self.N))
+        self.var_I           = np.zeros((self.N, self.N))
+        self.var_I_cut       = np.zeros(self.N)
+
+        self.I_immune        = np.zeros(self.N)
+        self.I_immune_err    = np.zeros(self.N)
+        self.f_im            = np.linspace(0.0, 1.0, self.N)
 
     def reinitialise_properties(self):
-        self.infected      = np.zeros(self.factor)
-        self.infected2     = np.zeros(self.factor)
-
-        self.recovered     = np.zeros(self.factor)
+        self.infected        = np.zeros(self.factor)
+        self.infected2       = np.zeros(self.factor)
 
         np.random.seed(0)
-        self.grid          = np.random.choice(self.vals, self.N*self.N, p=[self.ini_S, self.ini_I, self.ini_R]).reshape(self.N, self.N)
+        self.grid            = np.random.choice(self.vals, self.N*self.N, p=[self.ini_S, self.ini_I, self.ini_R]).reshape(self.N, self.N)
 
 ################################################### UPDATE FUNCTIONS #######################################################
 
     def update_anim(self):
-  
+        cdef int i, j, total_infect
+        cdef double[:, :] newGrid
+
         # copy grid since we require 8 neighbors  
         # for calculation and we go line by line  
         newGrid = self.grid.copy() 
@@ -108,21 +121,23 @@ class SIR():
                 # apply SIR's rules 
                 if self.grid[i, j]  == 0.0: 
                     if total_infect > 0 :
-                        if rand() < self.p1:
+                        if rand() < self.p1*RAND_MAX:
                             newGrid[i, j] = 1
                 
                 elif self.grid[i, j]  == 1:
-                    if rand() < self.p2:
+                    if rand() < self.p2*RAND_MAX:
                         newGrid[i, j] = 0.4
                 
                 elif self.grid[i, j]  == 0.4:
-                    if rand() < self.p3:
+                    if rand() < self.p3*RAND_MAX:
                         newGrid[i, j] = 0.0
   
         # update data 
         self.grid[:] = newGrid[:]
 
-    def update(self, idx1, idx2):
+    def update(self, int idx1, int idx2):
+        cdef int i, j, total_infect
+        cdef double[:, :] newGrid
 
         # copy grid since we require 8 neighbors  
         # for calculation and we go line by line  
@@ -136,17 +151,19 @@ class SIR():
                                 int(self.grid[(i-1)%self.N, j]) + int(self.grid[(i+1)%self.N, j]) +
                                 int(self.grid[(i-1)%self.N, (j-1)%self.N]) + int(self.grid[(i-1)%self.N, (j+1)%self.N]) + 
                                 int(self.grid[(i+1)%self.N, (j-1)%self.N]) + int(self.grid[(i+1)%self.N, (j+1)%self.N]))
+                                    
+                # apply SIR's rules 
                 if self.grid[i, j]  == 0.0:
                     if total_infect > 0 :
-                        if rand() < self.p1p3[0][idx1][idx2]:
+                        if rand() < self.p1p3[0][idx1][idx2]*RAND_MAX:
                             newGrid[i, j] = 1
                 
                 elif self.grid[i, j]  == 1.0:
-                    if rand() < 0.5:
+                    if rand() < 0.5*RAND_MAX:
                         newGrid[i, j] = 0.4
                 
                 elif self.grid[i, j]  == 0.4:
-                    if rand() < self.p1p3[1][idx1][idx2]:
+                    if rand() < self.p1p3[1][idx1][idx2]*RAND_MAX:
                         newGrid[i, j] = 0.0
 
         # update data 
@@ -154,7 +171,10 @@ class SIR():
 
 ################################################### VISUALISATION #####################################################
 
-    def DynamicPlot(self, numstep):
+    def DynamicPlot(self, int numstep):
+        cdef int i
+        cdef list colors, patches
+
         fig, ax = plt.subplots() 
         img = ax.imshow(self.grid, interpolation='nearest', cmap='viridis')
         colors = [ img.cmap(img.norm(value)) for value in self.vals]
@@ -167,9 +187,8 @@ class SIR():
             self.dynamicplotStep(i, patches)
         self.reinitialise_properties()
         self.reinitialise()
-
                                          
-    def dynamicplotStep(self, i, patches):
+    def dynamicplotStep(self, int i, list patches):
         clear_output(wait=True)
 
         fig, ax = plt.subplots() 
@@ -184,6 +203,7 @@ class SIR():
 ################################################## METHOD ########################################################
 
     def phaseDiagram(self):
+        cdef int idx1, idx2, i, j
         for idx1 in tqdm(range(self.N), desc='Row', leave=False, unit='row'):
             for idx2 in tqdm(range(self.N), desc='Col', leave=False, unit='col'):
                 for i in tqdm(range(self.equistep), desc='Equilibrate sweep', leave=False, unit='sweep'):              # equilibrate
@@ -202,6 +222,7 @@ class SIR():
         self.reinitialise()
 
     def variance(self):
+        cdef int idx1, idx2, i, j
         for idx1 in tqdm(range(self.N), desc='Row', leave=False, unit='row'):
             for idx2 in tqdm(range(self.N), desc='Col', leave=False, unit='col'):
                 for i in tqdm(range(self.equistep), desc='Equilibrate sweep', leave=False, unit='sweep'):              # equilibrate
@@ -221,7 +242,9 @@ class SIR():
         self.reinitialise()
 
 
-    def cutVariance(self, p1_cut):
+    def cutVariance(self, np.double_t[:] p1_cut):
+        cdef int idx, j
+        cdef double p1step
         self.p1_cut = p1_cut
         self.p2, self.p3 = 0.5, 0.5
         for idx, p1step in tqdm(enumerate(self.p1_cut), desc='Col', leave=False, unit='-th'):
@@ -241,6 +264,8 @@ class SIR():
 
 
     def compare_infected_immune(self):
+        cdef int idx, j
+        cdef double frac
         for idx, frac in tqdm(enumerate(self.f_im), desc='Immune Fraction', leave=False, unit='th fraction'):
             self.setImmuneState(frac)
             for j in tqdm(range(self.calcstep), desc='Measurement sweep', leave=False, unit='sweep'):           # measurement
@@ -258,21 +283,27 @@ class SIR():
     def calcInfectedSite(self):
         return np.sum(np.round(self.grid))
 
-    def setImmuneState(self, frac):
-        idx = np.argwhere(self.grid == 0.4)
-        for i in idx:
-            if rand() < frac:
-                self.grid[i[0]][i[1]] = 0.4001
+    def setImmuneState(self, double frac):
+        cdef int idx1, idx2
+        for idx1 in range(self.N):
+            for idx2 in range(self.N):
+                if self.grid[idx1][idx2] == 0.4:
+                    if rand() < frac*RAND_MAX:
+                        self.grid[idx1][idx2] = 0.4001
 
-    def calcIError(self, pointstep):
-        for idx, i in enumerate(range(self.factor)):
+    def calcIError(self, int pointstep):
+        cdef double Ii
+        cdef int i
+        for i in range(self.factor):
             Ii =  np.sum(np.delete(self.infected, [i]))/(self.factor - 1)/self.N
             self.Ii_I[i] = (Ii - self.I_immune[pointstep])**2
-        return np.sqrt((self.factor - 1)/(self.factor)*np.sum(self.Ii_I))
+        return sqrt((self.factor - 1)/(self.factor)*np.sum(self.Ii_I))
 
 ################################################## PLOTTING ########################################################
 
     def plotStats(self, phase_diagram=False, variance=False, cut=False, infected_immune=False):
+        if not os.path.isfile('./{}'.format(self.RUN_NAME)):
+            os.makedirs('./{}'.format(self.RUN_NAME))        
         if phase_diagram:
             plt.figure()
             cp = plt.contourf(self.p1p3[0], self.p1p3[1], self.I)
@@ -281,6 +312,7 @@ class SIR():
             plt.xlabel('p1')
             plt.ylabel('p3')
             plt.show()
+            plt.savefig('{}/phase_diagram'.format(self.RUN_NAME))
 
         elif variance:
             plt.figure()
@@ -290,6 +322,8 @@ class SIR():
             plt.xlabel('p1')
             plt.ylabel('p3')
             plt.show()
+            plt.savefig('{}/variance'.format(self.RUN_NAME))
+
 
         elif cut:
             plt.scatter(self.p1_cut, self.var_I_cut, marker='o', s=20, color='RoyalBlue')
@@ -297,14 +331,17 @@ class SIR():
             plt.ylabel("Cut for Wave Variance");         
             plt.axis('tight');
             plt.show()
+            plt.savefig('{}/cut'.format(self.RUN_NAME))
+
 
         elif infected_immune:
-            # plt.scatter(self.f_im, self.I_immune, marker='o', s=20, color='RoyalBlue')
             plt.errorbar(self.f_im, self.I_immune, yerr=self.I_immune_err, fmt='.', color='RoyalBlue', ecolor='black', elinewidth=0.2, capsize=2)
             plt.xlabel("Immune Fraction");
             plt.ylabel("Infected Fraction");         
             plt.axis('tight');
             plt.show()
+            plt.savefig('{}/infected_immune'.format(self.RUN_NAME))
+
 
         else:
             raise SIRError('Unknown method type given : [ phase_diagram ] [ variance ] [ cut ] [ infected_immune ]')
@@ -343,4 +380,3 @@ class SIR():
 
         else:
             raise SIRError('Unknown method type given : [ phase_diagram ] [ variance ] [ cut ] [ infected_immune ]')
-
