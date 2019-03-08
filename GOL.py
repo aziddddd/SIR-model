@@ -45,14 +45,14 @@ def calcSpeed(N, grid, compute):
             #sebab position sama lepas 4 kali, amik plot position bila lepas 4kali ni baru comparable
             if len(compute['com'])%4 == 0:
                 # print('------------------')
-                # if len(compute['com'])%8 == 0:
+                if len(compute['com'])%8 == 0:
                 #     print('%%%%%%%%%%%%%%%%%%%%%%')
-                    # return compute
-                # else:
+                    return compute
+                else:
                 #     print('$$$$$$$$$$$$$$$')
-                compute['diff com'].append(compute['com'][-1] - compute['com'][-2])
-                compute['time'].append( datetime.datetime.now() )
-                return compute
+                    compute['diff com'].append(compute['com'][-1] - compute['com'][-2])
+                    compute['time'].append( datetime.datetime.now() )
+                    return compute
             else:
                 return compute
     else:
@@ -97,8 +97,8 @@ def updatePlot(i, grid, N, compute):
     # plt.subplot(2, 1, 2)
     ax1 = plt.subplot2grid((3, 2), (2, 0), colspan=2)
     ax1.set_xlabel(r'$Real\/Time$')
-    ax1.set_ylabel(r'$Velocity$')
-    ax1.set_title('Center of Mass Velocity', fontsize='x-large')
+    # ax1.set_ylabel(r'$Velocity$')
+    ax1.set_title('Difference in Centre of Mass Position', fontsize='x-large')
     ax1.plot(compute['time'], compute['diff com'], linewidth=0.5, color='black')
     ax1.scatter(compute['time'], compute['diff com'], marker='o', s=10, color='ForestGreen') 
     ax1.set_ylim((0, 1))
@@ -165,8 +165,6 @@ def main():
     plotFigure = plt.figure() 
     ani = animation.FuncAnimation(plotFigure, updatePlot, fargs=(grid, N, compute, ), frames = 10, interval=updateInterval, save_count=50)
     plt.show()
-
-
 # call main 
 if __name__ == '__main__': 
     main() 

@@ -79,6 +79,7 @@ cdef class SIR(object):
         self.f_im            = np.linspace(0.0, 1.0, N)
     
     def reinitialise(self):
+        np.random.seed(0)
         self.grid            = np.random.choice(self.vals, self.N*self.N, p=[self.ini_S, self.ini_I, self.ini_R]).reshape(self.N, self.N)
 
         self.p1p3            = np.meshgrid(np.linspace(0.0, 1.0, self.N), np.linspace(0.0, 1.0, self.N))
@@ -302,7 +303,7 @@ cdef class SIR(object):
 ################################################## PLOTTING ########################################################
 
     def plotStats(self, phase_diagram=False, variance=False, cut=False, infected_immune=False):
-        if not os.path.isfile('./{}'.format(self.RUN_NAME)):
+        if not os.path.isdir('./{}'.format(self.RUN_NAME)):
             os.makedirs('./{}'.format(self.RUN_NAME))        
         if phase_diagram:
             plt.figure()
@@ -327,8 +328,9 @@ cdef class SIR(object):
 
         elif cut:
             plt.scatter(self.p1_cut, self.var_I_cut, marker='o', s=20, color='RoyalBlue')
+            plt.title('Cut for Wave Variance')
             plt.xlabel("p1");
-            plt.ylabel("Cut for Wave Variance");         
+            plt.ylabel("Variance");         
             plt.axis('tight');
             plt.show()
             plt.savefig('{}/cut'.format(self.RUN_NAME))
