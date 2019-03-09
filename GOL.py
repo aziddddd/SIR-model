@@ -119,7 +119,6 @@ def main():
     parser.add_argument('--interval', dest='interval', required=False)
     parser.add_argument('--glider', action='store_true', required=False)
     parser.add_argument('--blinker', action='store_true', required=False)
-    parser.add_argument('--gosper', action='store_true', required=False) 
     args = parser.parse_args() 
 
     compute              = {}
@@ -153,9 +152,9 @@ def main():
         grid = np.zeros(N*N).reshape(N, N) 
         addBlinker(1, 1, grid)
 
-    elif args.gosper: 
-        grid = np.zeros(N*N).reshape(N, N) 
-        addGosperGliderGun(10, 10, grid) 
+    # elif args.gosper: 
+    #     grid = np.zeros(N*N).reshape(N, N) 
+    #     addGosperGliderGun(10, 10, grid) 
   
     else:   # populate grid with random on/off - 
             # more off than on 

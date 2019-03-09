@@ -103,72 +103,81 @@ cdef class SIR(object):
 
     def update_anim(self):
         cdef int i, j, total_infect
-        cdef double[:, :] newGrid
+        #cdef double[:, :] newGrid
 
         # copy grid since we require 8 neighbors  
         # for calculation and we go line by line  
-        newGrid = self.grid.copy() 
+        #newGrid = self.grid.copy() 
         for i in range(self.N): 
             for j in range(self.N): 
     
                 # compute 8-neghbor sum 
                 # using toroidal boundary conditions - x and y wrap around  
                 # so that the simulaton takes place on a toroidal surface.    
+                #total_infect = (int(self.grid[i, (j-1)%self.N]) + int(self.grid[i, (j+1)%self.N]) + 
+                #                int(self.grid[(i-1)%self.N, j]) + int(self.grid[(i+1)%self.N, j]) +
+                #                int(self.grid[(i-1)%self.N, (j-1)%self.N]) + int(self.grid[(i-1)%self.N, (j+1)%self.N]) + 
+                #                int(self.grid[(i+1)%self.N, (j-1)%self.N]) + int(self.grid[(i+1)%self.N, (j+1)%self.N]))
+
+                # up down left right, 4 neighbour je we   
                 total_infect = (int(self.grid[i, (j-1)%self.N]) + int(self.grid[i, (j+1)%self.N]) + 
-                                int(self.grid[(i-1)%self.N, j]) + int(self.grid[(i+1)%self.N, j]) +
-                                int(self.grid[(i-1)%self.N, (j-1)%self.N]) + int(self.grid[(i-1)%self.N, (j+1)%self.N]) + 
-                                int(self.grid[(i+1)%self.N, (j-1)%self.N]) + int(self.grid[(i+1)%self.N, (j+1)%self.N]))
+                                int(self.grid[(i-1)%self.N, j]) + int(self.grid[(i+1)%self.N, j]))
     
                 # apply SIR's rules 
                 if self.grid[i, j]  == 0.0: 
                     if total_infect > 0 :
                         if rand() < self.p1*RAND_MAX:
-                            newGrid[i, j] = 1
+                            self.grid[i, j] = 1
                 
                 elif self.grid[i, j]  == 1:
                     if rand() < self.p2*RAND_MAX:
-                        newGrid[i, j] = 0.4
+                        self.grid[i, j] = 0.4
                 
                 elif self.grid[i, j]  == 0.4:
                     if rand() < self.p3*RAND_MAX:
-                        newGrid[i, j] = 0.0
+                        self.grid[i, j] = 0.0
   
         # update data 
-        self.grid[:] = newGrid[:]
+        #self.grid[:] = newGrid[:]
 
     def update(self, int idx1, int idx2):
         cdef int i, j, total_infect
-        cdef double[:, :] newGrid
+        #cdef double[:, :] newGrid
 
         # copy grid since we require 8 neighbors  
         # for calculation and we go line by line  
-        newGrid = self.grid.copy() 
+        # newGrid = self.grid.copy() 
         for i in range(self.N): 
             for j in range(self.N): 
                 # compute 8-neghbor sum 
                 # using toroidal boundary conditions - x and y wrap around  
-                # so that the simulaton takes place on a toroidal surface.                                    
+                # so that the simulaton takes place on a toroidal surface.                                 
+                #total_infect = (int(self.grid[i, (j-1)%self.N]) + int(self.grid[i, (j+1)%self.N]) + 
+                #                int(self.grid[(i-1)%self.N, j]) + int(self.grid[(i+1)%self.N, j]) +
+                #                int(self.grid[(i-1)%self.N, (j-1)%self.N]) + int(self.grid[(i-1)%self.N, (j+1)%self.N]) + 
+                #                int(self.grid[(i+1)%self.N, (j-1)%self.N]) + int(self.grid[(i+1)%self.N, (j+1)%self.N]))
+
+                # up down left right, 4 neighbour je we   
                 total_infect = (int(self.grid[i, (j-1)%self.N]) + int(self.grid[i, (j+1)%self.N]) + 
-                                int(self.grid[(i-1)%self.N, j]) + int(self.grid[(i+1)%self.N, j]) +
-                                int(self.grid[(i-1)%self.N, (j-1)%self.N]) + int(self.grid[(i-1)%self.N, (j+1)%self.N]) + 
-                                int(self.grid[(i+1)%self.N, (j-1)%self.N]) + int(self.grid[(i+1)%self.N, (j+1)%self.N]))
+                                int(self.grid[(i-1)%self.N, j]) + int(self.grid[(i+1)%self.N, j]))
                                     
                 # apply SIR's rules 
                 if self.grid[i, j]  == 0.0:
                     if total_infect > 0 :
                         if rand() < self.p1p3[0][idx1][idx2]*RAND_MAX:
-                            newGrid[i, j] = 1
+                            #newGrid[i, j] = 1
+                            self.grid[i, j] = 1
                 
                 elif self.grid[i, j]  == 1.0:
                     if rand() < 0.5*RAND_MAX:
-                        newGrid[i, j] = 0.4
+                        self.grid[i, j] = 0.4
                 
                 elif self.grid[i, j]  == 0.4:
                     if rand() < self.p1p3[1][idx1][idx2]*RAND_MAX:
-                        newGrid[i, j] = 0.0
+                        self.grid[i, j] = 0.0
 
         # update data 
-        self.grid[:] = newGrid[:]
+        #self.grid[:] = newGrid[:]
 
 ################################################### VISUALISATION #####################################################
 
@@ -177,7 +186,7 @@ cdef class SIR(object):
         cdef list colors, patches
 
         fig, ax = plt.subplots() 
-        img = ax.imshow(self.grid, interpolation='nearest', cmap='viridis')
+        img = ax.imshow(self.grid, interpolation='spline16', cmap='plasma')
         colors = [ img.cmap(img.norm(value)) for value in self.vals]
 
         # create a patch (proxy artist) for every color 
@@ -193,7 +202,7 @@ cdef class SIR(object):
         clear_output(wait=True)
 
         fig, ax = plt.subplots() 
-        img = ax.imshow(self.grid, interpolation='nearest', cmap='viridis', vmin=0.0, vmax=1.0)
+        img = ax.imshow(self.grid, interpolation='spline16', cmap='plasma', vmin=0.0, vmax=1.0)
         plt.title('Time=%d'%i); plt.axis('tight')
 
         # put those patched as legend-handles into the legend
@@ -244,12 +253,14 @@ cdef class SIR(object):
 
 
     def cutVariance(self, np.double_t[:] p1_cut):
-        cdef int idx, j
+        cdef int idx, i, j
         cdef double p1step
         self.p1_cut = p1_cut
         self.p2, self.p3 = 0.5, 0.5
         for idx, p1step in tqdm(enumerate(self.p1_cut), desc='Col', leave=False, unit='-th'):
             self.p1 = p1step
+            for i in tqdm(range(self.equistep), desc='Equilibrate sweep', leave=False, unit='sweep'):              # equilibrate
+                self.update_anim()   
             for j in tqdm(range(self.calcstep), desc='Measurement sweep', leave=False, unit='sweep'):           # measurement
                 self.update_anim()                                                                              # Monte Carlo moves
                 if (j%10 == 0):
@@ -269,6 +280,8 @@ cdef class SIR(object):
         cdef double frac
         for idx, frac in tqdm(enumerate(self.f_im), desc='Immune Fraction', leave=False, unit='th fraction'):
             self.setImmuneState(frac)
+            for i in tqdm(range(self.equistep), desc='Equilibrate sweep', leave=False, unit='sweep'):              # equilibrate
+                self.update_anim()   
             for j in tqdm(range(self.calcstep), desc='Measurement sweep', leave=False, unit='sweep'):           # measurement
                 self.update_anim()                                                                              # Monte Carlo moves
                 if (j%10 == 0):
@@ -298,7 +311,9 @@ cdef class SIR(object):
         for i in range(self.factor):
             Ii =  np.sum(np.delete(self.infected, [i]))/(self.factor - 1)/self.N
             self.Ii_I[i] = (Ii - self.I_immune[pointstep])**2
-        return sqrt((self.factor - 1)/(self.factor)*np.sum(self.Ii_I))
+        #return sqrt((self.factor - 1)/(self.factor)*np.sum(self.Ii_I))
+        return sqrt((self.factor)*np.sum(self.Ii_I))
+
 
 ################################################## PLOTTING ########################################################
 
@@ -327,6 +342,7 @@ cdef class SIR(object):
 
 
         elif cut:
+            plt.plot(self.p1_cut, self.var_I_cut, linewidth=0.3, color='black')
             plt.scatter(self.p1_cut, self.var_I_cut, marker='o', s=20, color='RoyalBlue')
             plt.title('Cut for Wave Variance')
             plt.xlabel("p1");
