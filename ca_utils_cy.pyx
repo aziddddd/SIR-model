@@ -14,6 +14,7 @@ import os
 import warnings
 
 ##########################################
+
 cimport cython
 cimport numpy as np
 
@@ -26,7 +27,7 @@ warnings.filterwarnings("ignore",category =RuntimeWarning)
 warnings.filterwarnings("ignore",category =FutureWarning)
 
 cdef class SIRError(Exception):
-    """ An exception class for Ising """
+    """ An exception class for SIR """
     pass
 
 # Class to simulate SIR model
@@ -103,23 +104,13 @@ cdef class SIR(object):
 
     def update_anim(self):
         cdef int i, j, total_infect
-        #cdef double[:, :] newGrid
 
-        # copy grid since we require 8 neighbors  
-        # for calculation and we go line by line  
-        #newGrid = self.grid.copy() 
+        # for calculation and we go line by line 
         for i in range(self.N): 
             for j in range(self.N): 
     
-                # compute 8-neghbor sum 
-                # using toroidal boundary conditions - x and y wrap around  
-                # so that the simulaton takes place on a toroidal surface.    
-                #total_infect = (int(self.grid[i, (j-1)%self.N]) + int(self.grid[i, (j+1)%self.N]) + 
-                #                int(self.grid[(i-1)%self.N, j]) + int(self.grid[(i+1)%self.N, j]) +
-                #                int(self.grid[(i-1)%self.N, (j-1)%self.N]) + int(self.grid[(i-1)%self.N, (j+1)%self.N]) + 
-                #                int(self.grid[(i+1)%self.N, (j-1)%self.N]) + int(self.grid[(i+1)%self.N, (j+1)%self.N]))
-
-                # up down left right, 4 neighbour je we   
+                # compute 4-neghbor sum 
+                # using periodic boundary conditions  
                 total_infect = (int(self.grid[i, (j-1)%self.N]) + int(self.grid[i, (j+1)%self.N]) + 
                                 int(self.grid[(i-1)%self.N, j]) + int(self.grid[(i+1)%self.N, j]))
     
@@ -136,28 +127,16 @@ cdef class SIR(object):
                 elif self.grid[i, j]  == 0.4:
                     if rand() < self.p3*RAND_MAX:
                         self.grid[i, j] = 0.0
-  
-        # update data 
-        #self.grid[:] = newGrid[:]
 
     def update(self, int idx1, int idx2):
         cdef int i, j, total_infect
-        #cdef double[:, :] newGrid
 
-        # copy grid since we require 8 neighbors  
-        # for calculation and we go line by line  
-        # newGrid = self.grid.copy() 
+        # for calculation and we go line by line
         for i in range(self.N): 
             for j in range(self.N): 
-                # compute 8-neghbor sum 
-                # using toroidal boundary conditions - x and y wrap around  
-                # so that the simulaton takes place on a toroidal surface.                                 
-                #total_infect = (int(self.grid[i, (j-1)%self.N]) + int(self.grid[i, (j+1)%self.N]) + 
-                #                int(self.grid[(i-1)%self.N, j]) + int(self.grid[(i+1)%self.N, j]) +
-                #                int(self.grid[(i-1)%self.N, (j-1)%self.N]) + int(self.grid[(i-1)%self.N, (j+1)%self.N]) + 
-                #                int(self.grid[(i+1)%self.N, (j-1)%self.N]) + int(self.grid[(i+1)%self.N, (j+1)%self.N]))
-
-                # up down left right, 4 neighbour je we   
+                # compute 4-neghbor sum 
+                # using periodic boundary conditions  
+                # so that the simulaton takes place on a toroidal surface.
                 total_infect = (int(self.grid[i, (j-1)%self.N]) + int(self.grid[i, (j+1)%self.N]) + 
                                 int(self.grid[(i-1)%self.N, j]) + int(self.grid[(i+1)%self.N, j]))
                                     
@@ -165,7 +144,6 @@ cdef class SIR(object):
                 if self.grid[i, j]  == 0.0:
                     if total_infect > 0 :
                         if rand() < self.p1p3[0][idx1][idx2]*RAND_MAX:
-                            #newGrid[i, j] = 1
                             self.grid[i, j] = 1
                 
                 elif self.grid[i, j]  == 1.0:
@@ -175,9 +153,6 @@ cdef class SIR(object):
                 elif self.grid[i, j]  == 0.4:
                     if rand() < self.p1p3[1][idx1][idx2]*RAND_MAX:
                         self.grid[i, j] = 0.0
-
-        # update data 
-        #self.grid[:] = newGrid[:]
 
 ################################################### VISUALISATION #####################################################
 
@@ -311,9 +286,7 @@ cdef class SIR(object):
         for i in range(self.factor):
             Ii =  np.sum(np.delete(self.infected, [i]))/(self.factor - 1)/self.N
             self.Ii_I[i] = (Ii - self.I_immune[pointstep])**2
-        #return sqrt((self.factor - 1)/(self.factor)*np.sum(self.Ii_I))
         return sqrt((self.factor)*np.sum(self.Ii_I))
-
 
 ################################################## PLOTTING ########################################################
 
@@ -340,7 +313,6 @@ cdef class SIR(object):
             plt.show()
             plt.savefig('{}/variance'.format(self.RUN_NAME))
 
-
         elif cut:
             plt.plot(self.p1_cut, self.var_I_cut, linewidth=0.3, color='black')
             plt.scatter(self.p1_cut, self.var_I_cut, marker='o', s=20, color='RoyalBlue')
@@ -351,7 +323,6 @@ cdef class SIR(object):
             plt.show()
             plt.savefig('{}/cut'.format(self.RUN_NAME))
 
-
         elif infected_immune:
             plt.errorbar(self.f_im, self.I_immune, yerr=self.I_immune_err, fmt='.', color='RoyalBlue', ecolor='black', elinewidth=0.2, capsize=2)
             plt.xlabel("Immune Fraction");
@@ -360,41 +331,40 @@ cdef class SIR(object):
             plt.show()
             plt.savefig('{}/infected_immune'.format(self.RUN_NAME))
 
-
         else:
             raise SIRError('Unknown method type given : [ phase_diagram ] [ variance ] [ cut ] [ infected_immune ]')
 
-    def dumpData(self, phase_diagram=False, variance=False, cut=False, infected_immune=False):
-        if phase_diagram:
-            if not os.path.isfile('./Phase_Diagram'):
-                os.makedirs('./Phase_Diagram')
-            else:
-                np.savetxt('{}/P1.txt'.format('./Phase_Diagram'), self.p1p3[0])
-                np.savetxt('{}/P3.txt'.format('./Phase_Diagram'), self.p1p3[1])
-                np.savetxt('{}/I.txt'.format('./Phase_Diagram'), self.I)
+    # def dumpData(self, phase_diagram=False, variance=False, cut=False, infected_immune=False):
+    #     if phase_diagram:
+    #         if not os.path.isfile('./Phase_Diagram'):
+    #             os.makedirs('./Phase_Diagram')
+    #         else:
+    #             np.savetxt('{}/P1.txt'.format('./Phase_Diagram'), self.p1p3[0])
+    #             np.savetxt('{}/P3.txt'.format('./Phase_Diagram'), self.p1p3[1])
+    #             np.savetxt('{}/I.txt'.format('./Phase_Diagram'), self.I)
 
-        elif variance:
-            if not os.path.isfile('./Variance'):
-                os.makedirs('./Variance')
-            else:
-                np.savetxt('{}/P1.txt'.format('./Variance'), self.p1p3[0])
-                np.savetxt('{}/P3.txt'.format('./Variance'), self.p1p3[1])
-                np.savetxt('{}/Varience_I.txt'.format('./Variance'), self.var_I)
+    #     elif variance:
+    #         if not os.path.isfile('./Variance'):
+    #             os.makedirs('./Variance')
+    #         else:
+    #             np.savetxt('{}/P1.txt'.format('./Variance'), self.p1p3[0])
+    #             np.savetxt('{}/P3.txt'.format('./Variance'), self.p1p3[1])
+    #             np.savetxt('{}/Varience_I.txt'.format('./Variance'), self.var_I)
 
-        elif cut:
-            if not os.path.isfile('./Cut_Variance'):
-                os.makedirs('./Cut_Variance')
-            else:
-                np.savetxt('{}/P1.txt'.format('./Cut_Variance'), self.p1_cut)
-                np.savetxt('{}/Varience_I.txt'.format('./Cut_Variance'), self.var_I_cut)
+    #     elif cut:
+    #         if not os.path.isfile('./Cut_Variance'):
+    #             os.makedirs('./Cut_Variance')
+    #         else:
+    #             np.savetxt('{}/P1.txt'.format('./Cut_Variance'), self.p1_cut)
+    #             np.savetxt('{}/Varience_I.txt'.format('./Cut_Variance'), self.var_I_cut)
 
-        elif infected_immune:
-            if not os.path.isfile('./Infected_Immune'):
-                os.makedirs('./Infected_Immune')
-            else:
-                np.savetxt('{}/Immune_Fraction.txt'.format('./Infected_Immune'), self.f_im)
-                np.savetxt('{}/Infected_Fraction.txt'.format('./Infected_Immune'), self.I_immune)
-                np.savetxt('{}/Infected_Fraction_Error.txt'.format('./Infected_Immune'), self.I_immune_err)
+    #     elif infected_immune:
+    #         if not os.path.isfile('./Infected_Immune'):
+    #             os.makedirs('./Infected_Immune')
+    #         else:
+    #             np.savetxt('{}/Immune_Fraction.txt'.format('./Infected_Immune'), self.f_im)
+    #             np.savetxt('{}/Infected_Fraction.txt'.format('./Infected_Immune'), self.I_immune)
+    #             np.savetxt('{}/Infected_Fraction_Error.txt'.format('./Infected_Immune'), self.I_immune_err)
 
-        else:
-            raise SIRError('Unknown method type given : [ phase_diagram ] [ variance ] [ cut ] [ infected_immune ]')
+    #     else:
+    #         raise SIRError('Unknown method type given : [ phase_diagram ] [ variance ] [ cut ] [ infected_immune ]')
