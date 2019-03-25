@@ -35,21 +35,17 @@ def calcSpeed(N, grid, compute):
     x, y = np.where(grid == 255)
     r_cm = np.sqrt((np.sum(x)/len(x))**2 + (np.sum(y)/len(y))**2)
     compute['com'].append(r_cm)
-    #lebih satu baru boleh compute difference
+    #compute difference in position of com
     if len(compute['com']) > 1:
         # difference negative maksudnya dia tgh cross boundaries
         if (compute['com'][-1] - compute['com'][-2]) < 0:
             return compute
         else:
-            # print(len(compute['com']))
-            #sebab position sama lepas 4 kali, amik plot position bila lepas 4kali ni baru comparable
+            # Take the plot position after every 4 generations for comparable values
             if len(compute['com'])%4 == 0:
-                # print('------------------')
                 if len(compute['com'])%8 == 0:
-                #     print('%%%%%%%%%%%%%%%%%%%%%%')
                     return compute
                 else:
-                #     print('$$$$$$$$$$$$$$$')
                     compute['diff com'].append(compute['com'][-1] - compute['com'][-2])
                     compute['time'].append( datetime.datetime.now() )
                     return compute
@@ -97,7 +93,6 @@ def updatePlot(i, grid, N, compute):
     # plt.subplot(2, 1, 2)
     ax1 = plt.subplot2grid((3, 2), (2, 0), colspan=2)
     ax1.set_xlabel(r'$Real\/Time$')
-    # ax1.set_ylabel(r'$Velocity$')
     ax1.set_title('Difference in Centre of Mass Position', fontsize='x-large')
     ax1.plot(compute['time'], compute['diff com'], linewidth=0.5, color='black')
     ax1.scatter(compute['time'], compute['diff com'], marker='o', s=10, color='ForestGreen') 
