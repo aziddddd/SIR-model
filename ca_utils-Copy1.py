@@ -6,10 +6,6 @@ from numpy.random import rand
 import matplotlib.pyplot as plt
 from matplotlib import animation
 import matplotlib.patches as mpatches
-from shapely.geometry import Point
-
-import geopandas as gpd
-import pandas as pd
 
 from IPython.display import clear_output
 
@@ -75,132 +71,6 @@ class SIR():
         self.I_immune_err = np.zeros(N)
         self.f_im       = np.linspace(0.0, 1.0, N)
 
-        self.grids = []
-        self.province_data = {}
-        self.grid_mapping = {}
-        self.boundary = {
-            'min_x': [],
-            'min_y': [],
-            'max_x': [],
-            'max_y': [],
-        }
-
-
-    def collect_shape_file(self, path):
-        # get shape file
-        self.province_mapping = {}
-        for file in tqdm(os.listdir(path)):
-            inner_path = path + file
-            for file2 in tqdm(os.listdir(inner_path), leave=False):
-                if file2.endswith(".shp"):
-                    shape_file =  inner_path + '/' + file2
-                    self.province_mapping[' '.join([i.capitalize() for i in file.split('-')])] = shape_file
-
-    # def random_points_within(
-    #     self,
-    #     poly
-    # ):
-    #     min_x, min_y, max_x, max_y = poly.bounds
-
-    #     self.grid_mapping = {}
-        
-    #     for y in np.linspace(min_y, max_y, self.N):
-    #         for x in np.linspace(min_x, max_x, self.N):
-    #             if (random_point.within(poly)):
-    #                 state = np.random.choice(self.vals, 1, p=self.proba)
-    #                 self.grid_mapping[(x, y)] = state[0]
-    #             else:
-    #                 self.grid_mapping[(x, y)] = 2
-
-
-    def random_points_within(
-        self,
-        poly,
-        province='BELLUNO'
-    ):
-        min_x, min_y, max_x, max_y = poly.bounds
-        self.boundary['min_x'].append(min_x)
-        self.boundary['min_y'].append(min_y)
-        self.boundary['max_x'].append(max_x)
-        self.boundary['max_y'].append(max_y)
-
-        # self.df = pd.DataFrame()
-        points, states = [], []
-        
-        for y in tqdm(np.linspace(min_y, max_y, self.N)):
-            for x in tqdm(np.linspace(min_x, max_x, self.N),leave=False):
-                # random_point = Point([x, y])
-                random_point = (x, y)
-                points.append(random_point)
-                if (Point([x, y]).within(poly)):
-                    state = np.random.choice(self.vals, 1, p=self.proba)
-                    self.grid_mapping[(x, y)] = state[0]
-                    # states.append(state[0])
-                else:
-                    self.grid_mapping[(x, y)] = 2
-                    # states.append(2)
-
-        self.province_data[province] = {}
-        self.province_data[province]['points'] = points
-        self.province_data[province]['states'] = states
-
-        # for point, state in tqdm(zip(self.points, self.states)):
-        #     x = point.x
-        #     y = point.y
-        #     point = point
-        #     state = state
-        #     data.append([x, y, point, state])
-                
-        # # return dataframe
-        # province_df = pd.DataFrame(data, columns=['x', 'y', 'point', 'state']).sort_values(by=['x', 'y'])
-        # self.df.append(province_df, ignore_index = True)
-
-    def grid_wrapper(self):
-        min_x = min(self.boundary['min_x'])
-        min_y = min(self.boundary['min_y'])
-        max_x = max(self.boundary['max_x'])
-        max_y = max(self.boundary['max_y'])
-
-        master_N = self.N*len(self.province_data)
-        states = []
-        
-        # master_grid = np.random.choice(
-        #     [0, 2], 
-        #     size=master_N*master_N, 
-        #     p=[0, 1]
-        # ).reshape(master_N, master_N)
-        
-        for y in tqdm(np.linspace(min_y, max_y, master_N)):
-            for x in tqdm(np.linspace(min_x, max_x, master_N), leave=False):
-                try:
-                    states.append(self.grid_mapping[(x, y)])
-                except:
-                    states.append(2)
-
-        self.grid = np.asarray(states).reshape(master_N, master_N)
-
-    def pickup_grid_2(self):
-        self.proba = [self.ini_S, self.ini_I, self.ini_R]
-        gdf = gpd.GeoDataFrame()
-
-        for key, val in self.province_mapping.items():
-            iter_gdf = gpd.GeoDataFrame.from_file(val)
-            gdf = pd.concat([gdf, iter_gdf])
-
-        for idx, row in gdf.head(1).iterrows():
-            sub_gdf = gpd.GeoDataFrame(row).T
-            # display(sub_gdf)
-            
-            # collect master boundary information and province data
-            self.random_points_within(
-                poly=sub_gdf['geometry'][idx],
-                province=sub_gdf['NOME_PRO'][idx]
-            )
-
-        # wrap up all grids according to coordinates and master boundaries
-        self.grid_wrapper()
-        # self.grid = np.asarray(self.states).reshape(self.N, self.N)
-
     def pickup_grid(self):
         temp=Image.open('../../covid19/image/Italy.png')
         temp=temp.convert('1')      # Convert to black&white
@@ -259,8 +129,8 @@ class SIR():
         # copy grid since we require 8 neighbors  
         # for calculation and we go line by line  
         newGrid = self.grid.copy() 
-        for i in range(self.N): 
-            for j in range(self.N): 
+        for i in range(self.height): 
+            for j in range(self.width): 
                 # compute 8-neghbor sum 
                 # using toroidal boundary conditions - x and y wrap around  
                 # so that the simulaton takes place on a toroidal surface.   
@@ -381,7 +251,7 @@ class SIR():
         clear_output(wait=True)
 
         fig, ax = plt.subplots() 
-        img = ax.imshow(self.grid, interpolation='nearest', cmap='magma')
+        img = ax.imshow(self.grid, interpolation='nearest', cmap='magma', vmin=0.0, vmax=1.0)
         plt.title('Time=%d'%i); plt.axis('tight')
 
         # put those patched as legend-handles into the legend
